@@ -57,6 +57,16 @@ struct map_state {
 	GHashTable *xfer_queue;
 };
 
+enum xfer_types {
+	XFER_NOTIFICATION,
+	XFER_SENTMSG,
+};
+
+struct xfer_tuple {
+	enum xfer_types type;
+	gpointer value;
+};
+
 struct init_data {
 	GCond cond;
 	GMutex mutex;
@@ -67,11 +77,12 @@ struct init_data {
 };
 
 struct call_work {
-	struct bluetooth_state *ns;
+	struct map_state *ns;
 	int id;
 	gchar *access_type;
 	gchar *type_arg;
 	gchar *method;
+	gchar *bluez_method;
 	struct bluez_pending_work *cpw;
 	afb_req_t request;
 	GDBusMethodInvocation *invocation;

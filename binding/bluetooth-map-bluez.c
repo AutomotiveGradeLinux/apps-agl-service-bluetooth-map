@@ -142,7 +142,8 @@ void bluez_decode_call_error(struct map_state *ns,
 					access_type, type_arg);
 
 		} else if (!strcmp(method, "CreateSession") ||
-			   !strcmp(method, "RemoveSession")) {
+			   !strcmp(method, "RemoveSession") ||
+			   !strcmp(method, "SetFolder")) {
 
 			g_clear_error(error);
 			g_set_error(error, NB_ERROR,
@@ -152,7 +153,8 @@ void bluez_decode_call_error(struct map_state *ns,
 
 		} else if (!strcmp(method, "Cancel") ||
 			   !strcmp(method, "Suspend") ||
-			   !strcmp(method, "Resume")) {
+			   !strcmp(method, "Resume") ||
+			   !strcmp(method, "PushMessage")) {
 
 			g_clear_error(error);
 			g_set_error(error, NB_ERROR,
@@ -189,6 +191,8 @@ GVariant *bluez_call(struct map_state *ns,
 		interface = BLUEZ_OBEX_TRANSFER_INTERFACE;
 	} else if (!strcmp(access_type, BLUEZ_AT_MESSAGE)) {
 		interface = BLUEZ_OBEX_MESSAGE_INTERFACE;
+	} else if (!strcmp(access_type, BLUEZ_AT_MESSAGEACCESS)) {
+		interface = BLUEZ_OBEX_MESSAGEACCESS_INTERFACE;
 	} else {
 		g_set_error(error, NB_ERROR, NB_ERROR_ILLEGAL_ARGUMENT,
 				"illegal %s argument",
@@ -252,7 +256,8 @@ bluez_call_async(struct map_state *ns,
 	struct bluez_pending_work *cpw;
 
 	if (!type_arg && (!strcmp(access_type, BLUEZ_AT_SESSION) ||
-			  !strcmp(access_type, BLUEZ_AT_TRANSFER))) {
+			  !strcmp(access_type, BLUEZ_AT_TRANSFER) ||
+			  !strcmp(access_type, BLUEZ_AT_MESSAGEACCESS))) {
 		g_set_error(error, NB_ERROR, NB_ERROR_MISSING_ARGUMENT,
 				"missing %s argument",
 				access_type);
@@ -265,6 +270,9 @@ bluez_call_async(struct map_state *ns,
 	} else if (!strcmp(access_type, BLUEZ_AT_TRANSFER)) {
 		path = type_arg;
 		interface = BLUEZ_OBEX_TRANSFER_INTERFACE;
+	} else if (!strcmp(access_type, BLUEZ_AT_MESSAGEACCESS)) {
+		path = type_arg;
+		interface = BLUEZ_OBEX_MESSAGEACCESS_INTERFACE;
 	} else {
 		g_set_error(error, NB_ERROR, NB_ERROR_ILLEGAL_ARGUMENT,
 				"illegal %s argument",

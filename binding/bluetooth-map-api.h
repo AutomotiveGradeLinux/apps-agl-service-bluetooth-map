@@ -30,6 +30,7 @@
 #define BLUEZ_OBEX_SESSION_INTERFACE		BLUEZ_OBEX_SERVICE ".Session1"
 #define BLUEZ_OBEX_TRANSFER_INTERFACE		BLUEZ_OBEX_SERVICE ".Transfer1"
 #define BLUEZ_OBEX_MESSAGE_INTERFACE		BLUEZ_OBEX_SERVICE ".Message1"
+#define BLUEZ_OBEX_MESSAGEACCESS_INTERFACE	BLUEZ_OBEX_SERVICE ".MessageAccess1"
 
 #define BLUEZ_OBJECT_PATH			"/"
 #define BLUEZ_OBEX_PATH				"/org/bluez/obex"
@@ -49,6 +50,7 @@
 #define BLUEZ_AT_SESSION			"session"
 #define BLUEZ_AT_TRANSFER			"transfer"
 #define BLUEZ_AT_MESSAGE			"message"
+#define BLUEZ_AT_MESSAGEACCESS			"message-access"
 
 struct map_state;
 

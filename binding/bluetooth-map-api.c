@@ -62,6 +62,166 @@ void call_work_unlock(struct map_state *ns)
 	g_mutex_unlock(&ns->cw_mutex);
 }
 
+struct call_work *call_work_lookup_unlocked(
+		struct map_state *ns,
+		const char *access_type, const char *type_arg,
+		const char *method)
+{
+	struct call_work *cw;
+	GSList *list;
+
+	/* we can only allow a single pending call */
+	for (list = ns->cw_pending; list; list = g_slist_next(list)) {
+		cw = list->data;
+		if (!g_strcmp0(access_type, cw->access_type) &&
+		    !g_strcmp0(type_arg, cw->type_arg) &&
+		    !g_strcmp0(method, cw->method))
+			return cw;
+	}
+	return NULL;
+}
+
+struct call_work *call_work_lookup(
+		struct map_state *ns,
+		const char *access_type, const char *type_arg,
+		const char *method)
+{
+	struct call_work *cw;
+
+	g_mutex_lock(&ns->cw_mutex);
+	cw = call_work_lookup_unlocked(ns, access_type, type_arg, method);
+	g_mutex_unlock(&ns->cw_mutex);
+
+	return cw;
+}
+
+int call_work_pending_id(
+		struct map_state *ns,
+		const char *access_type, const char *type_arg,
+		const char *method)
+{
+	struct call_work *cw;
+	int id = -1;
+
+	g_mutex_lock(&ns->cw_mutex);
+	cw = call_work_lookup_unlocked(ns, access_type, type_arg, method);
+	if (cw)
+		id = cw->id;
+	g_mutex_unlock(&ns->cw_mutex);
+
+	return id;
+}
+
+struct call_work *call_work_lookup_by_id_unlocked(
+		struct map_state *ns, int id)
+{
+	struct call_work *cw;
+	GSList *list;
+
+	/* we can only allow a single pending call */
+	for (list = ns->cw_pending; list; list = g_slist_next(list)) {
+		cw = list->data;
+		if (cw->id == id)
+			return cw;
+	}
+	return NULL;
+}
+
+struct call_work *call_work_lookup_by_id(
+		struct map_state *ns, int id)
+{
+	struct call_work *cw;
+
+	g_mutex_lock(&ns->cw_mutex);
+	cw = call_work_lookup_by_id_unlocked(ns, id);
+	g_mutex_unlock(&ns->cw_mutex);
+
+	return cw;
+}
+
+struct call_work *call_work_create_unlocked(struct map_state *ns,
+		const char *access_type, const char *type_arg,
+		const char *method, const char *bluez_method,
+		GError **error)
+{
+
+	struct call_work *cw = NULL;
+
+	cw = call_work_lookup_unlocked(ns, access_type, type_arg, method);
+	if (cw) {
+		g_set_error(error, NB_ERROR, NB_ERROR_CALL_IN_PROGRESS,
+				"another call in progress (%s/%s/%s)",
+				access_type, type_arg, method);
+		return NULL;
+	}
+
+	/* no other pending; allocate */
+	cw = g_malloc0(sizeof(*cw));
+	cw->ns = ns;
+	do {
+		cw->id = ns->next_cw_id;
+		if (++ns->next_cw_id < 0)
+			ns->next_cw_id = 1;
+	} while (call_work_lookup_by_id_unlocked(ns, cw->id));
+
+	cw->access_type = g_strdup(access_type);
+	cw->type_arg = g_strdup(type_arg);
+	cw->method = g_strdup(method);
+	cw->bluez_method = g_strdup(bluez_method);
+
+	ns->cw_pending = g_slist_prepend(ns->cw_pending, cw);
+
+	return cw;
+}
+
+struct call_work *call_work_create(struct map_state *ns,
+		const char *access_type, const char *type_arg,
+		const char *method, const char *bluez_method,
+		GError **error)
+{
+
+	struct call_work *cw;
+
+	g_mutex_lock(&ns->cw_mutex);
+	cw = call_work_create_unlocked(ns,
+			access_type, type_arg, method, bluez_method,
+			error);
+	g_mutex_unlock(&ns->cw_mutex);
+
+	return cw;
+}
+
+void call_work_destroy_unlocked(struct call_work *cw)
+{
+	struct map_state *ns = cw->ns;
+	struct call_work *cw2;
+
+	/* verify that it's something we know about */
+	cw2 = call_work_lookup_by_id_unlocked(ns, cw->id);
+	if (cw2 != cw) {
+		AFB_ERROR("Bad call work to destroy");
+		return;
+	}
+
+	/* remove it */
+	ns->cw_pending = g_slist_remove(ns->cw_pending, cw);
+
+	g_free(cw->access_type);
+	g_free(cw->type_arg);
+	g_free(cw->method);
+	g_free(cw->bluez_method);
+}
+
+
+void call_work_destroy(struct call_work *cw)
+{
+	struct map_state *ns = cw->ns;
+
+	g_mutex_lock(&ns->cw_mutex);
+	call_work_destroy_unlocked(cw);
+	g_mutex_unlock(&ns->cw_mutex);
+}
+
 static afb_event_t get_event_from_value(struct map_state *ns,
 			const char *value)
 {
@@ -110,6 +270,109 @@ static void map_subscribe_unsubscribe(afb_req_t request,
 	afb_req_success_f(request, jresp, "Bluetooth MAP %s to event \"%s\"",
 			!unsub ? "subscribed" : "unsubscribed",
 			value);
+}
+
+static void push_message_callback(void *user_data,
+		GVariant *result, GError **error)
+{
+	struct call_work *cw = user_data;
+	struct map_state *ns = cw->ns;
+	struct xfer_tuple *data;
+	gchar *path = NULL;
+
+	bluez_decode_call_error(ns,
+		cw->access_type, cw->type_arg, cw->method,
+		error);
+
+	if (error && *error) {
+		afb_req_fail_f(cw->request, "failed", "OBEX error: %s",
+				(*error)->message);
+		goto out_free;
+	} else if (!result) {
+		goto out_free;
+	}
+
+	g_variant_get(result, "(&oa{sv})", &path, NULL);
+
+	afb_req_addref(cw->request);
+
+	data = g_try_malloc0(sizeof(*data));
+	data->type = XFER_SENTMSG;
+	data->value = cw->request;
+
+	g_hash_table_insert(ns->xfer_queue, g_strdup(path), data);
+
+	g_variant_unref(result);
+out_free:
+	afb_req_unref(cw->request);
+	call_work_destroy(cw);
+}
+
+
+
+static void compose(afb_req_t request)
+{
+	struct map_state *ns = map_get_userdata(request);
+	const char *message = afb_req_value(request, "bmessage");
+	GError *error = NULL;
+	GVariant *params, *reply;
+	gchar *name, *session;
+	struct call_work *cw;
+	int fd;
+
+	call_work_lock(ns);
+	if (!ns || !ns->session_path) {
+		afb_req_fail_f(request, "failed", "no valid OBEX session");
+		call_work_unlock(ns);
+		return;
+	}
+	session = g_strdup(ns->session_path);
+	call_work_unlock(ns);
+
+	if (!message) {
+		afb_req_fail_f(request, "failed", "no valid message provided");
+		goto err_msg_invalid;
+	}
+
+	fd = g_file_open_tmp("obex-clientXXXXXX", &name, NULL);
+	close(fd);
+
+	g_file_set_contents(name, message, -1, NULL);
+
+	params = g_variant_new("(&s)", "telecom/msg/OUTBOX");
+	reply = bluez_call(ns, BLUEZ_AT_MESSAGEACCESS, session, "SetFolder", params, NULL);
+	if (reply) g_variant_unref(reply);
+
+	cw = call_work_create(ns, BLUEZ_AT_MESSAGEACCESS, session,
+			"queue_message", "PushMessage", &error);
+	if (!cw) {
+		afb_req_fail_f(request, "failed", "can't queue work %s",
+				error->message);
+		g_error_free(error);
+		goto err_queue_free;
+	}
+
+	cw->request = request;
+	afb_req_addref(request);
+
+	params = g_variant_new("(&s&sa{sv})", name, "", NULL);
+	cw->cpw = bluez_call_async(ns, BLUEZ_AT_MESSAGEACCESS, session,
+				   "PushMessage", params, &error,
+				    push_message_callback, cw);
+
+	if (!cw->cpw) {
+		afb_req_fail_f(request, "failed", "connection error %s",
+				error->message);
+		call_work_destroy(cw);
+		g_error_free(error);
+		/* fall-thru */
+	}
+
+err_queue_free:
+	g_free(name);
+
+err_msg_invalid:
+	g_free(session);
 }
 
 static void subscribe(afb_req_t request)
@@ -185,12 +448,16 @@ static void bluez_map_signal_callback(
 			array1 = g_variant_iter_new(var);
 
 			while (g_variant_iter_next(array1, "{&sv}", &name, &val)) {
+				struct xfer_tuple *data;
+
 				if (g_strcmp0(name, "Filename"))
 					continue;
 
 				call_work_lock(ns);
-				g_hash_table_insert(ns->xfer_queue, g_strdup(path),
-					g_strdup(g_variant_get_string(val, NULL)));
+				data = g_try_malloc0(sizeof(*data));
+				data->type = XFER_NOTIFICATION;
+				data->value = g_strdup(g_variant_get_string(val, NULL));
+				g_hash_table_insert(ns->xfer_queue, g_strdup(path), data);
 				call_work_unlock(ns);
 				break;
 			}
@@ -204,27 +471,46 @@ static void bluez_map_signal_callback(
 			return;
 
 		while (g_variant_iter_next(array, "{&sv}", &key, &var)) {
-			gchar *filename;
+			struct xfer_tuple *val;
+			const gchar *status;
 
 			// only check Status field
 			if (g_strcmp0(key, "Status"))
 				continue;
 
-			// only need the "complete" Status
-			if (g_strcmp0(g_variant_get_string(var, NULL), "complete"))
-				return;
+			// only need the "complete" or "error" Status
+			status = g_variant_get_string(var, NULL);
+			if (g_strcmp0(status, "complete") && g_strcmp0(status, "error"))
+				break;
 
 			call_work_lock(ns);
-			filename = (gchar *) g_hash_table_lookup(ns->xfer_queue, object_path);
-			if (filename) {
+			val = g_hash_table_lookup(ns->xfer_queue, object_path);
+			if (val)
 				g_hash_table_remove(ns->xfer_queue, object_path);
-				call_work_unlock(ns);
+			call_work_unlock(ns);
 
-				map_notification_event(ns, filename);
-				g_free(filename);
+			if (!val)
+				break;
+
+			if (val->type == XFER_NOTIFICATION) {
+				if (!g_strcmp0(status, "complete"))
+					map_notification_event(ns, (gchar *) val->value);
+
+				g_free(val->value);
+				g_free(val);
+				break;
+			} else if (val->type == XFER_SENTMSG) {
+				afb_req_t request = (afb_req_t) val->value;
+
+				if (!g_strcmp0(status, "complete"))
+					afb_req_success_f(request, NULL, "OBEX - transfer %s completed", object_path);
+				else
+					afb_req_fail_f(request, "failed", "OBEX - transfer %s failed", object_path);
+
+				afb_req_unref(request);
+				g_free(val);
 				break;
 			}
-			call_work_unlock(ns);
 		}
 	}
 }
@@ -516,6 +802,7 @@ static void onevent(afb_api_t api, const char *event, struct json_object *object
 }
 
 static const afb_verb_t binding_verbs[] = {
+	{ .verb = "compose",	.callback = compose,	.info = "Compose message" },
 	{ .verb = "subscribe",	.callback = subscribe,	.info = "Subscribe to events" },
 	{ .verb = "unsubscribe",.callback = unsubscribe,.info = "Unsubscribe to events" },
 	{}
