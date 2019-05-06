@@ -124,9 +124,11 @@ static void unsubscribe(afb_req_t request)
 
 static void map_request_message(struct map_state *ns, const gchar *path)
 {
-	GVariant *params =
+	GVariant *reply, *params =
 		g_variant_new("(&sb)", "", g_variant_new_boolean(FALSE));
-	bluez_call(ns, BLUEZ_AT_MESSAGE, path, "Get", params, NULL);
+	reply = bluez_call(ns, BLUEZ_AT_MESSAGE, path, "Get", params, NULL);
+	if (reply)
+		g_variant_unref(reply);
 }
 
 static void map_notification_event(struct map_state *ns, gchar *filename)
