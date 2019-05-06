@@ -7,10 +7,11 @@
         <author>@PROJECT_AUTHOR@ &lt;@PROJECT_AUTHOR_MAIL@&gt;</author>
         <license>@PROJECT_LICENSE@</license>
 
-        <feature name="urn:AGL:widget:required-permission">
+    <feature name="urn:AGL:widget:required-permission">
         <param name="urn:AGL:permission::public:hidden" value="required" />
+        <param name="urn:AGL:permission::system:run-by-default" value="required" />
         <param name="http://tizen.org/privilege/internal/dbus" value="required" />
-        </feature>
+    </feature>
 
     <feature name="urn:AGL:widget:provided-api">
         <param name="bluetooth-map" value="ws" />
