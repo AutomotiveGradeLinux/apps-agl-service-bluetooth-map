@@ -438,7 +438,7 @@ static void discovery_result_cb(void *closure, struct json_object *result,
 static void process_connection_event(afb_api_t api, struct json_object *object)
 {
 	struct json_object *val = NULL, *props = NULL;
-	const char *action, *device;
+	const char *action;
 
 	json_object_object_get_ex(object, "action", &val);
 	if (!val)
@@ -461,14 +461,6 @@ static void process_connection_event(afb_api_t api, struct json_object *object)
 			     args, discovery_result_cb, NULL);
 		return;
 	}
-
-	json_object_object_get_ex(object, "device", &val);
-	if (!val)
-		return;
-
-	device = json_object_get_string(val);
-
-	AFB_NOTICE("MAP device disconnected: %s", device);
 }
 
 static int init(afb_api_t api)
