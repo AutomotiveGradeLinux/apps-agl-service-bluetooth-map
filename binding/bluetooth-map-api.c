@@ -391,7 +391,7 @@ static gboolean is_map_dev_and_init(struct map_state *ns, struct json_object *de
 		const char *address = NULL;
 		struct json_object *val1 = NULL;
 
-		if (g_strcmp0(MAP_UUID, uuid))
+		if (g_strcmp0(MAS_UUID, uuid))
 			continue;
 
 		json_object_object_get_ex(props, "address", &val1);

@@ -32,7 +32,7 @@
 #define AFB_BINDING_VERSION 3
 #include <afb/afb-binding.h>
 
-#define MAP_UUID		"00001133-0000-1000-8000-00805f9b34fb"
+#define MAS_UUID		"00001132-0000-1000-8000-00805f9b34fb"
 
 struct call_work;
 
