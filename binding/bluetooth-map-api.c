@@ -445,6 +445,13 @@ static void bluez_map_signal_callback(
 			if (g_strcmp0(key, BLUEZ_OBEX_TRANSFER_INTERFACE))
 				continue;
 
+			call_work_lock(ns);
+			if (!ns->session_path || strncmp(ns->session_path, path, strlen(ns->session_path))) {
+				call_work_unlock(ns);
+				continue;
+			}
+			call_work_unlock(ns);
+
 			array1 = g_variant_iter_new(var);
 
 			while (g_variant_iter_next(array1, "{&sv}", &name, &val)) {
