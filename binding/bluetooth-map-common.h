@@ -171,4 +171,8 @@ json_object *get_named_property(const struct property_info *pi,
 		gboolean is_json_name, const char *name, json_object *jprop);
 
 
+/* functions defined in bluetooth-map-bmessage.c */
+
+json_object *bmessage_parse(const gchar *bmessage);
+
 #endif /* BLUETOOTH_MAP_COMMON_H */

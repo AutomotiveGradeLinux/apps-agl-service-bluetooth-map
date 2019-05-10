@@ -21,7 +21,9 @@
 PROJECT_TARGET_ADD(bluetooth-map-binding)
 
 	# Define project Targets
-	add_library(bluetooth-map-binding MODULE bluetooth-map-api.c bluetooth-map-bluez.c)
+	add_library(bluetooth-map-binding MODULE bluetooth-map-api.c
+						 bluetooth-map-bluez.c
+						 bluetooth-map-bmessage.c)
 
 	# Binder exposes a unique public entry point
 	SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES

@@ -402,10 +402,9 @@ static void map_notification_event(struct map_state *ns, gchar *filename)
 	if (!g_file_get_contents(filename, &buf, NULL, NULL))
 		return;
 
-	jresp = json_object_new_object();
-	json_object_object_add(jresp, "bmessage", json_object_new_string(buf));
-
-	afb_event_push(ns->notification_event, jresp);
+	jresp = bmessage_parse(buf);
+	if (jresp)
+		afb_event_push(ns->notification_event, jresp);
 	g_free(buf);
 }
 
