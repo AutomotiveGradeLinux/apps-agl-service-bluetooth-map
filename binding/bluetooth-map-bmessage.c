@@ -151,6 +151,9 @@ static gboolean __bmessage_parse(gchar **msg, json_object *jresp)
 	expect(&msg, "END:BENV", NULL);
 	expect(&msg, "END:BMSG", NULL);
 
+	// remove trailing \n
+	message->str[message->len - 1] = '\0';
+
 	json_object_object_add(jresp, "message", json_object_new_string(message->str));
 	g_string_free(message, TRUE);
 
