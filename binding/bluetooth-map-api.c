@@ -308,13 +308,11 @@ out_free:
 	call_work_destroy(cw);
 }
 
-
-
 static void compose(afb_req_t request)
 {
 	struct map_state *ns = map_get_userdata(request);
-	const char *message = afb_req_value(request, "bmessage");
 	GError *error = NULL;
+	GString *message = NULL;
 	GVariant *params, *reply;
 	gchar *name, *session;
 	struct call_work *cw;
@@ -329,6 +327,7 @@ static void compose(afb_req_t request)
 	session = g_strdup(ns->session_path);
 	call_work_unlock(ns);
 
+	message = bmessage_encoder(request);
 	if (!message) {
 		afb_req_fail_f(request, "failed", "no valid message provided");
 		goto err_msg_invalid;
@@ -337,7 +336,8 @@ static void compose(afb_req_t request)
 	fd = g_file_open_tmp("obex-clientXXXXXX", &name, NULL);
 	close(fd);
 
-	g_file_set_contents(name, message, -1, NULL);
+	g_file_set_contents(name, message->str, -1, NULL);
+	g_string_free(message, TRUE);
 
 	params = g_variant_new("(&s)", "telecom/msg/OUTBOX");
 	reply = bluez_call(ns, BLUEZ_AT_MESSAGEACCESS, session, "SetFolder", params, NULL);

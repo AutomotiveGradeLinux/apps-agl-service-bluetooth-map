@@ -195,3 +195,92 @@ json_object *bmessage_parse(const gchar *bmessage)
 
 	return jresp;
 }
+
+#define CRLF		"\r\n"
+#define BEGINMSG	"BEGIN:MSG" CRLF
+#define ENDMSG		"END:MSG" CRLF
+
+#define body_append(str, value)		g_string_append_printf(str, "%s%s", value, CRLF)
+
+GString *msg2dos(const gchar *data)
+{
+	gchar **msg, **tmp;
+	GString *value;
+
+	if (!data)
+		return NULL;
+
+	msg = g_strsplit(data, "\n", -1);
+	value = g_string_new(NULL);
+
+	for (tmp = msg; *tmp; tmp++) {
+		g_string_append(value, *tmp);
+
+		if (!g_str_has_suffix(*tmp, "\r"))
+			g_string_append(value, CRLF);
+		else
+			g_string_append(value, "\n");
+	}
+
+	g_strfreev(msg);
+
+	return value;
+}
+
+GString *bmessage_encoder(afb_req_t request)
+{
+	const gchar *recipient;
+	GString *msg, *body = g_string_new(NULL);
+	gchar *tmp;
+
+	recipient = afb_req_value(request, "recipient");
+	if (!recipient) {
+		g_string_free(body, TRUE);
+		return NULL;
+	}
+
+	msg = msg2dos(afb_req_value(request, "message"));
+	if (!msg) {
+		g_string_free(body, TRUE);
+		return NULL;
+	}
+
+	body_append(body, "BEGIN:BMSG");
+	body_append(body, "VERSION:1.0");
+
+	// TODO: maybe add support for MMS
+	body_append(body, "TYPE:SMS_GSM");
+
+	body_append(body, "FOLDER:telecom/msg/outbox");
+	body_append(body, "BEGIN:BENV");
+
+	body_append(body, "BEGIN:VCARD");
+	body_append(body, "VERSION:2.1");
+
+	// TODO: get contact information from agl-service-bluetooth-pbap
+	tmp = g_strdup_printf("TEL:%s", recipient);
+	body_append(body, tmp);
+	g_free(tmp);
+
+	body_append(body, "END:VCARD");
+
+	body_append(body, "BEGIN:BBODY");
+	body_append(body, "CHARSET:UTF-8");
+
+	tmp = g_strdup_printf("LENGTH:%lu",
+		strlen(BEGINMSG) + msg->len + strlen(ENDMSG));
+
+	body_append(body, tmp);
+	g_free(tmp);
+
+	g_string_append(body, BEGINMSG);
+	g_string_append(body, msg->str);
+	g_string_free(msg, TRUE);
+	g_string_append(body, ENDMSG);
+
+	body_append(body, "END:BBODY");
+	body_append(body, "END:BENV");
+	body_append(body, "END:BMSG");
+
+	return body;
+}

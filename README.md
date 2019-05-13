@@ -31,27 +31,8 @@ Send a message (if supported) via MAP profile:
 
 <pre>
 {
-  "bmessage":
-    "BEGIN:BMSG\r\n
-     VERSION:1.0\r\n
-     TYPE:SMS_GSM\r\n
-     FOLDER:telecom/msg/outbox\r\n
-     BEGIN:BENV\r\n
-     BEGIN:VCARD\r\n
-     VERSION:2.1\r\n
-     TEL:+13605551212\r\n
-     END:VCARD\r\n
-     BEGIN:BBODY\r\n
-     CHARSET:UTF-8\r\n
-     LANGUAGE:UNKNOWN\r\n
-     LENGTH:48\r\n
-     BEGIN:MSG\r\n
-     Sounds good. See you then.\r\n
-     END:MSG\r\n
-     END:BBODY\r\n
-     END:BENV\r\n
-     END:BMSG\r\n
-    "
+  "recipient": "+13605551212",
+  "message": "Sounds good. See you then."
 }
 </pre>
 
