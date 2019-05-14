@@ -43,7 +43,7 @@ Send a message (if supported) via MAP profile:
    "status": "UNREAD",
    "type": "SMS_GSM",
    "folder": "telecom/msg/inbox",
-   "recipient": {
+   "sender": {
        "fn": "Satoshi Nakamoto",
        "n": "Satoshi"
     },

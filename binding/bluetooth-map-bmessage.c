@@ -75,14 +75,14 @@ static gboolean __expect(gchar ***msg, gchar *str, json_object *jresp, gboolean 
 
 #define expect(msg, str, jresp) { if (!__expect(msg, str, jresp, TRUE)) { return FALSE; }; }
 
-static gboolean parse_recipient_vcard(gchar ***msg, json_object *jresp)
+static gboolean parse_sender_vcard(gchar ***msg, json_object *jresp)
 {
 	json_object *jobj;
 
 	expect(msg, "VERSION:", NULL);
 
 	jobj = json_object_new_object();
-	json_object_object_add(jresp, "recipient", jobj);
+	json_object_object_add(jresp, "sender", jobj);
 
 	expect(msg, "FN", jobj);
 	expect(msg, "N", jobj);
@@ -109,7 +109,7 @@ static gboolean __bmessage_parse(gchar **msg, json_object *jresp)
 
 	while (*msg) {
 		if (!vcard && __expect(&msg, "BEGIN:VCARD", NULL, TRUE)) {
-			vcard = parse_recipient_vcard(&msg, jresp);
+			vcard = parse_sender_vcard(&msg, jresp);
 			continue;
 		}
 
