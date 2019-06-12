@@ -75,14 +75,14 @@ static gboolean __expect(gchar ***msg, gchar *str, json_object *jresp, gboolean 
 
 #define expect(msg, str, jresp) { if (!__expect(msg, str, jresp, TRUE)) { return FALSE; }; }
 
-static gboolean parse_sender_vcard(gchar ***msg, json_object *jresp)
+static gboolean parse_vcard(gchar ***msg, json_object *jresp, char *key)
 {
 	json_object *jobj;
 
 	expect(msg, "VERSION:", NULL);
 
 	jobj = json_object_new_object();
-	json_object_object_add(jresp, "sender", jobj);
+	json_object_object_add(jresp, key, jobj);
 
 	expect(msg, "FN", jobj);
 	expect(msg, "N", jobj);
@@ -93,8 +93,9 @@ static gboolean parse_sender_vcard(gchar ***msg, json_object *jresp)
 
 static gboolean __bmessage_parse(gchar **msg, json_object *jresp)
 {
-	gboolean benv = FALSE, bmsg = FALSE, vcard = FALSE;
+	gboolean benv = FALSE, bmsg = FALSE, vcard = FALSE, incoming;
 	GString *message = g_string_new(NULL);
+	const char *folder;
 
 	// BMSG: Begin of valid message
 	expect(&msg, "BEGIN:BMSG", NULL);
@@ -105,21 +106,43 @@ static gboolean __bmessage_parse(gchar **msg, json_object *jresp)
 	expect(&msg, "TYPE:", jresp);
 	expect(&msg, "FOLDER:", jresp);
 
+	folder = json_object_get_string(json_object_object_get(jresp, "folder"));
+	incoming = g_ascii_strcasecmp("telecom/msg/sent", folder);
+
 	// BMSG: iOS puts some non-standard stuff here
 
 	while (*msg) {
-		if (!vcard && __expect(&msg, "BEGIN:VCARD", NULL, TRUE)) {
-			vcard = parse_sender_vcard(&msg, jresp);
-			continue;
-		}
+		// parse received message
+		if (incoming) {
+			if (!vcard && __expect(&msg, "BEGIN:VCARD", NULL, TRUE)) {
+				vcard = parse_vcard(&msg, jresp, "sender");
+				continue;
+			}
 
-		// VCARD: any BENV is invalid if comes before the recipient data
-		if (!vcard)
-			continue;
+			// VCARD: any BENV is invalid if comes before the sender data
+			if (!vcard)
+				continue;
 
-		if (!benv && __expect(&msg, "BEGIN:BENV", NULL, TRUE)) {
-			benv = TRUE;
-			continue;
+			if (!benv && __expect(&msg, "BEGIN:BENV", NULL, TRUE)) {
+				benv = TRUE;
+				continue;
+			}
+
+		// parse sent/outgoing message
+		} else {
+			if (!benv && __expect(&msg, "BEGIN:BENV", NULL, TRUE)) {
+				benv = TRUE;
+				continue;
+			}
+
+			if (!vcard && __expect(&msg, "BEGIN:VCARD", NULL, TRUE)) {
+				vcard = parse_vcard(&msg, jresp, "recipient");
+				continue;
+			}
+
+			// VCARD: any BENV is invalid if comes after the recipient data
+			if (!vcard)
+				continue;
 		}
 
 		// BENV: can't be in the message body yet
