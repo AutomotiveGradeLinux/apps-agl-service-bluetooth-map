@@ -408,6 +408,21 @@ static void map_notification_event(struct map_state *ns, gchar *filename)
 	g_free(buf);
 }
 
+static gboolean map_notification_check(GVariant *var)
+{
+	GVariantIter *array = g_variant_iter_new(var);
+	const char *name = NULL;
+	GVariant *val = NULL;
+
+	while (g_variant_iter_next(array, "{&sv}", &name, &val)) {
+		if (g_strcmp0("Status", name))
+			continue;
+		return !g_strcmp0("notification", g_variant_get_string(val, NULL));
+	}
+
+	return FALSE;
+}
+
 static void bluez_map_signal_callback(
 	GDBusConnection *connection,
 	const gchar *sender_name,
@@ -437,6 +452,13 @@ static void bluez_map_signal_callback(
 			GVariant *val = NULL;
 
 			if (!g_strcmp0(key, BLUEZ_OBEX_MESSAGE_INTERFACE)) {
+
+				/* ListMessages will send all messages as events
+				 * if notification status isn't checked
+				 */
+				if (!map_notification_check(var))
+					return;
+
 				map_request_message(ns, path);
 				continue;
 			}
