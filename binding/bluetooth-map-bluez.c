@@ -38,8 +38,6 @@
 #include "bluetooth-map-api.h"
 #include "bluetooth-map-common.h"
 
-G_DEFINE_QUARK(bluetooth-map-error-quark, nb_error);
-
 static const struct property_info session_props[] = {
 	{ .name = "Source",		.fmt = "s", },
 	{ .name = "Destination",	.fmt = "s", },
@@ -257,6 +255,7 @@ bluez_call_async(struct map_state *ns,
 
 	if (!type_arg && (!strcmp(access_type, BLUEZ_AT_SESSION) ||
 			  !strcmp(access_type, BLUEZ_AT_TRANSFER) ||
+			  !strcmp(access_type, BLUEZ_AT_MESSAGE) ||
 			  !strcmp(access_type, BLUEZ_AT_MESSAGEACCESS))) {
 		g_set_error(error, NB_ERROR, NB_ERROR_MISSING_ARGUMENT,
 				"missing %s argument",
@@ -270,6 +269,9 @@ bluez_call_async(struct map_state *ns,
 	} else if (!strcmp(access_type, BLUEZ_AT_TRANSFER)) {
 		path = type_arg;
 		interface = BLUEZ_OBEX_TRANSFER_INTERFACE;
+	} else if (!strcmp(access_type, BLUEZ_AT_MESSAGE)) {
+		path = type_arg;
+		interface = BLUEZ_OBEX_MESSAGE_INTERFACE;
 	} else if (!strcmp(access_type, BLUEZ_AT_MESSAGEACCESS)) {
 		path = type_arg;
 		interface = BLUEZ_OBEX_MESSAGEACCESS_INTERFACE;

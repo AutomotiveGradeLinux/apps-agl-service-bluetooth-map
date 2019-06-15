@@ -339,7 +339,7 @@ static void compose(afb_req_t request)
 	g_file_set_contents(name, message->str, -1, NULL);
 	g_string_free(message, TRUE);
 
-	params = g_variant_new("(&s)", "telecom/msg/OUTBOX");
+	params = g_variant_new("(&s)", "/telecom/msg/OUTBOX");
 	reply = bluez_call(ns, BLUEZ_AT_MESSAGEACCESS, session, "SetFolder", params, NULL);
 	if (reply) g_variant_unref(reply);
 
@@ -372,6 +372,158 @@ err_queue_free:
 	g_free(name);
 
 err_msg_invalid:
+	g_free(session);
+}
+
+
+static void get_message_callback(void *user_data,
+		GVariant *result, GError **error)
+{
+	struct call_work *cw = user_data;
+	struct map_state *ns = cw->ns;
+
+	bluez_decode_call_error(ns,
+		cw->access_type, cw->type_arg, cw->method,
+		error);
+
+	if (error && *error) {
+		afb_req_fail_f(cw->request, "failed", "OBEX error: %s",
+				(*error)->message);
+		goto out_free;
+	}
+
+	if (!result) {
+		goto out_free;
+	}
+
+	g_variant_unref(result);
+
+	return;
+
+out_free:
+	afb_req_unref(cw->request);
+	call_work_destroy(cw);
+}
+
+static void message(afb_req_t request)
+{
+	struct map_state *ns = map_get_userdata(request);
+	GError *error = NULL;
+	GVariant *params;
+	const char *handle;
+	gchar *path, *filename;
+	struct call_work *cw;
+
+	handle = afb_req_value(request, "handle");
+	if (!handle) {
+		afb_req_fail_f(request, "failed", "no handle value passed");
+		return;
+	}
+
+	call_work_lock(ns);
+	if (!ns || !ns->session_path) {
+		afb_req_fail_f(request, "failed", "no valid OBEX session");
+		call_work_unlock(ns);
+		return;
+	}
+	path = g_strconcat(ns->session_path, "/", handle, NULL);
+	call_work_unlock(ns);
+
+	cw = call_work_create(ns, BLUEZ_AT_MESSAGE, NULL,
+			"get_message", "Get", &error);
+	if (!cw) {
+		afb_req_fail_f(request, "failed", "can't queue work %s",
+				error->message);
+		g_error_free(error);
+		goto err_queue_free;
+	}
+
+	cw->request = request;
+	afb_req_addref(request);
+
+	filename = g_strconcat("/tmp/obex-message-", handle, NULL);
+	params = g_variant_new("(&sb)", filename, g_variant_new_boolean(FALSE));
+	cw->cpw = bluez_call_async(ns, BLUEZ_AT_MESSAGE, path,
+				   "Get", params, &error,
+				    get_message_callback, cw);
+	g_free(filename);
+
+	if (!cw->cpw) {
+		afb_req_fail_f(request, "failed", "connection error %s",
+				error->message);
+		call_work_destroy(cw);
+		g_error_free(error);
+		/* fall-thru */
+	}
+
+err_queue_free:
+	g_free(path);
+}
+
+static void list_msgs(afb_req_t request)
+{
+	struct map_state *ns = map_get_userdata(request);
+	GVariant *params, *reply;
+	GVariantIter *iter = NULL, *iter2 = NULL;
+	const char *folder;
+	const gchar *path = NULL;
+	json_object *jresp;
+	gchar *session;
+
+	folder = afb_req_value(request, "folder");
+	if (!folder) {
+		afb_req_fail_f(request, "failed", "no folder value passed");
+		return;
+	}
+
+	call_work_lock(ns);
+	session = g_strdup(ns->session_path);
+
+	params = g_variant_new("(&s)", "/telecom/msg");
+	reply = bluez_call(ns, BLUEZ_AT_MESSAGEACCESS, session, "SetFolder", params, NULL);
+	if (!reply) {
+		afb_req_fail_f(request, "failed", "cannot switch to telecom/msg");
+		goto out_free;
+	}
+	g_variant_unref(reply);
+
+	params = g_variant_new("(&sa{sv})", folder, NULL);
+	reply = bluez_call(ns, BLUEZ_AT_MESSAGEACCESS, session, "ListMessages", params, NULL);
+	if (!reply) {
+		afb_req_fail_f(request, "failed",
+			"Cannot list messages in telecom/msg/%s", folder);
+		goto out_free;
+	}
+
+	jresp = json_object_new_object();
+
+	g_variant_get(reply, "(a{oa{sv}})", &iter);
+	while (g_variant_iter_loop(iter, "{oa{sv}}", &path, &iter2)) {
+		const char *key = NULL;
+		GVariant *val = NULL;
+		json_object *msg = json_object_new_object();
+
+		while (g_variant_iter_loop(iter2, "{sv}", &key, &val)) {
+			GError *error = NULL;
+			gboolean is_config, ret;
+
+			ret = message_property_dbus2json(msg, key, val,
+							 &is_config, &error);
+			g_variant_unref(val);
+			if (!ret) {
+				AFB_DEBUG("%s property %s - %s",
+						path,
+						key, error->message);
+				g_clear_error(&error);
+			}
+		}
+		json_object_object_add(jresp, path + strlen(session) + 1, msg);
+	}
+
+	afb_req_success_f(request, jresp, "Bluetooth MAP folder listing");
+
+out_free:
+	call_work_unlock(ns);
 	g_free(session);
 }
 
@@ -421,6 +573,35 @@ static gboolean map_notification_check(GVariant *var)
 	}
 
 	return FALSE;
+}
+
+static void map_message_response(struct map_state *ns, gchar *filename)
+{
+	struct call_work *cw;
+	json_object *jresp;
+	gchar *buf;
+
+	if (!g_file_get_contents(filename, &buf, NULL, NULL))
+		return;
+
+	jresp = bmessage_parse(buf);
+
+	call_work_lock(ns);
+
+	cw = call_work_lookup_unlocked(ns, BLUEZ_AT_MESSAGE, NULL, "get_message");
+	if (!cw) {
+		if (jresp)
+			json_object_put(jresp);
+		return;
+	}
+
+
+	afb_req_success_f(cw->request, jresp, "Bluetooth MAP message result");
+
+	call_work_destroy_unlocked(cw);
+
+	call_work_unlock(ns);
+	g_free(buf);
 }
 
 static void bluez_map_signal_callback(
@@ -477,14 +658,21 @@ static void bluez_map_signal_callback(
 
 			while (g_variant_iter_next(array1, "{&sv}", &name, &val)) {
 				struct xfer_tuple *data;
+				gchar *filename;
 
 				if (g_strcmp0(name, "Filename"))
 					continue;
 
 				call_work_lock(ns);
 				data = g_try_malloc0(sizeof(*data));
-				data->type = XFER_NOTIFICATION;
-				data->value = g_strdup(g_variant_get_string(val, NULL));
+				filename = g_strdup(g_variant_get_string(val, NULL));
+
+				// TODO: figure a better way that isn't based on name
+				if (strstr(filename, "obex-message-"))
+					data->type = XFER_MESSAGE;
+				else
+					data->type = XFER_NOTIFICATION;
+				data->value = filename;
 				g_hash_table_insert(ns->xfer_queue, g_strdup(path), data);
 				call_work_unlock(ns);
 				break;
@@ -536,6 +724,13 @@ static void bluez_map_signal_callback(
 					afb_req_fail_f(request, "failed", "OBEX - transfer %s failed", object_path);
 
 				afb_req_unref(request);
+				g_free(val);
+				break;
+			} else if (val->type == XFER_MESSAGE) {
+				if (!g_strcmp0(status, "complete"))
+					map_message_response(ns, (gchar *) val->value);
+
+				g_free(val->value);
 				g_free(val);
 				break;
 			}
@@ -830,9 +1025,11 @@ static void onevent(afb_api_t api, const char *event, struct json_object *object
 }
 
 static const afb_verb_t binding_verbs[] = {
-	{ .verb = "compose",	.callback = compose,	.info = "Compose message" },
-	{ .verb = "subscribe",	.callback = subscribe,	.info = "Subscribe to events" },
-	{ .verb = "unsubscribe",.callback = unsubscribe,.info = "Unsubscribe to events" },
+	{ .verb = "compose",       .callback = compose,     .info = "Compose message" },
+	{ .verb = "message",       .callback = message,     .info = "Retrieve message" },
+	{ .verb = "list_messages", .callback = list_msgs,   .info = "List messages" },
+	{ .verb = "subscribe",     .callback = subscribe,   .info = "Subscribe to events" },
+	{ .verb = "unsubscribe",   .callback = unsubscribe, .info = "Unsubscribe to events" },
 	{}
 };
 

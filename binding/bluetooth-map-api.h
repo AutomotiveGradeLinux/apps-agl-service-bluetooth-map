@@ -116,6 +116,14 @@ static inline gboolean transfer_property_dbus2json(json_object *jprop,
 			jprop, key, var, is_config, error);
 }
 
+static inline gboolean message_property_dbus2json(json_object *jprop,
+		const gchar *key, GVariant *var, gboolean *is_config,
+		GError **error)
+{
+	return bluez_property_dbus2json(BLUEZ_AT_MESSAGE,
+			jprop, key, var, is_config, error);
+}
+
 static inline json_object *object_properties(struct map_state *ns,
 		GError **error)
 {

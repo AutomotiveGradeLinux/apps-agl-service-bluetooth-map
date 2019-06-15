@@ -60,6 +60,7 @@ struct map_state {
 enum xfer_types {
 	XFER_NOTIFICATION,
 	XFER_SENTMSG,
+	XFER_MESSAGE,
 };
 
 struct xfer_tuple {
