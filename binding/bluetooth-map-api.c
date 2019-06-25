@@ -471,7 +471,7 @@ static void list_msgs(afb_req_t request)
 	gchar *session;
 
 	folder = afb_req_value(request, "folder");
-	if (!folder) {
+	if (!folder || !strlen(folder)) {
 		afb_req_fail_f(request, "failed", "no folder value passed");
 		return;
 	}
