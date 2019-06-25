@@ -467,7 +467,7 @@ static void list_msgs(afb_req_t request)
 	GVariantIter *iter = NULL, *iter2 = NULL;
 	const char *folder;
 	const gchar *path = NULL;
-	json_object *jresp;
+	json_object *jresp, *jmessage;
 	gchar *session;
 
 	folder = afb_req_value(request, "folder");
@@ -496,6 +496,8 @@ static void list_msgs(afb_req_t request)
 	}
 
 	jresp = json_object_new_object();
+	jmessage = json_object_new_object();
+	json_object_object_add(jresp, "messages", jmessage);
 
 	g_variant_get(reply, "(a{oa{sv}})", &iter);
 	while (g_variant_iter_loop(iter, "{oa{sv}}", &path, &iter2)) {
@@ -517,7 +519,7 @@ static void list_msgs(afb_req_t request)
 				g_clear_error(&error);
 			}
 		}
-		json_object_object_add(jresp, path + strlen(session) + 1, msg);
+		json_object_object_add(jmessage, path + strlen(session) + 1, msg);
 	}
 
 	afb_req_success_f(request, jresp, "Bluetooth MAP folder listing");

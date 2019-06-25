@@ -79,23 +79,26 @@ Response which the message handle as the key and includes its properties:
 <pre>
 {
     "response": {
-        "message288230376151711769": {
-            "folder": "/telecom/msg/INBOX",
-            "subject": "Meet at Victor 23 at 6p?",
-            "timestamp": "20190614T093341",
-            "sender": "",
-            "senderaddress": "+13605551212",
-            "recipient": "",
-            "recipientaddress": "",
-            "type": "sms-gsm",
-            "size": 24,
-            "status": "complete",
-            "priority": false,
-            "read": false,
-            "sent": false,
-            "protected": false
-        },
-   ...
+        "messages": {
+            "message288230376151711769": {
+                "folder": "/telecom/msg/INBOX",
+                "subject": "Meet at Victor 23 at 6p?",
+                "timestamp": "20190614T093341",
+                "sender": "",
+                "senderaddress": "+13605551212",
+                "recipient": "",
+                "recipientaddress": "",
+                "type": "sms-gsm",
+                "size": 24,
+                "status": "complete",
+                "priority": false,
+                "read": false,
+                "sent": false,
+                "protected": false
+            },
+            ...
+        }
+    }
 },
 </pre>
 
