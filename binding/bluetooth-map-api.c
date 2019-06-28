@@ -848,6 +848,7 @@ static gpointer map_func(gpointer ptr)
 	return NULL;
 
 err_no_ns:
+	signal_init_done(id, -EINVAL);
 	g_main_loop_unref(loop);
 
 err_no_loop:
