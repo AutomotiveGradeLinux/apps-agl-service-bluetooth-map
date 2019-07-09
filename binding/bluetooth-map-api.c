@@ -503,7 +503,8 @@ static void list_msgs(afb_req_t request)
 	while (g_variant_iter_loop(iter, "{oa{sv}}", &path, &iter2)) {
 		const char *key = NULL;
 		GVariant *val = NULL;
-		json_object *msg = json_object_new_object();
+		json_object *msg = json_object_new_object(), *val1;
+		size_t size = 0;
 
 		while (g_variant_iter_loop(iter2, "{sv}", &key, &val)) {
 			GError *error = NULL;
@@ -519,6 +520,13 @@ static void list_msgs(afb_req_t request)
 				g_clear_error(&error);
 			}
 		}
+
+		if (json_object_object_get_ex(msg, "size", &val1))
+			size = json_object_get_int(val1);
+		if (json_object_object_get_ex(msg, "subject", &val1))
+			size -= strlen(json_object_get_string(val1));
+
+		json_object_object_add(msg, "downloaded", json_object_new_boolean(!size));
 		json_object_object_add(jmessage, path + strlen(session) + 1, msg);
 	}
 

@@ -94,7 +94,8 @@ Response which the message handle as the key and includes its properties:
                 "priority": false,
                 "read": false,
                 "sent": false,
-                "protected": false
+                "protected": false,
+                "downloaded": true
             },
             ...
         }
