@@ -24,6 +24,7 @@
 #include <time.h>
 
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <gio/gio.h>
 #include <json-c/json.h>
 
@@ -569,6 +570,8 @@ static void map_notification_event(struct map_state *ns, gchar *filename)
 	if (jresp)
 		afb_event_push(ns->notification_event, jresp);
 	g_free(buf);
+
+	g_unlink(filename);
 }
 
 static gboolean map_notification_check(GVariant *var)
@@ -741,7 +744,9 @@ static void bluez_map_signal_callback(
 				if (!g_strcmp0(status, "complete"))
 					map_message_response(ns, (gchar *) val->value);
 
+				g_unlink(val->value);
 				g_free(val->value);
+
 				g_free(val);
 				break;
 			}
