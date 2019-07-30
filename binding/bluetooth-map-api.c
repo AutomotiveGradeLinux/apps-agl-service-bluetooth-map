@@ -314,9 +314,8 @@ static void compose(afb_req_t request)
 	GError *error = NULL;
 	GString *message = NULL;
 	GVariant *params, *reply;
-	gchar *name, *session;
+	gchar *name, *session, *hash;
 	struct call_work *cw;
-	int fd;
 
 	call_work_lock(ns);
 	if (!ns || !ns->session_path) {
@@ -333,8 +332,10 @@ static void compose(afb_req_t request)
 		goto err_msg_invalid;
 	}
 
-	fd = g_file_open_tmp("obex-clientXXXXXX", &name, NULL);
-	close(fd);
+	hash = g_compute_checksum_for_string(G_CHECKSUM_MD5,
+					     message->str, sizeof(message->str));
+	name = g_strconcat(get_obex_tmpdir(), "/obex-client-", hash, NULL);
+	g_free(hash);
 
 	g_file_set_contents(name, message->str, -1, NULL);
 	g_string_free(message, TRUE);
@@ -441,7 +442,7 @@ static void message(afb_req_t request)
 	cw->request = request;
 	afb_req_addref(request);
 
-	filename = g_strconcat("/tmp/obex-message-", handle, NULL);
+	filename = g_strconcat(get_obex_tmpdir(), "/obex-message-", handle, NULL);
 	params = g_variant_new("(&sb)", filename, g_variant_new_boolean(FALSE));
 	cw->cpw = bluez_call_async(ns, BLUEZ_AT_MESSAGE, path,
 				   "Get", params, &error,
