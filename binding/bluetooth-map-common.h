@@ -177,4 +177,21 @@ json_object *get_named_property(const struct property_info *pi,
 json_object *bmessage_parse(const gchar *bmessage);
 GString *bmessage_encoder(afb_req_t request);
 
+
+/* helper defines */
+
+#define OBEX_USRSHR_PATH "/run/user/%d/usrshr"
+
+#define get_obex_tmpdir() \
+	({ \
+		uid_t __uid = getuid(); \
+		size_t __len; \
+		__len = sizeof(uid_t) + 1 + sizeof(OBEX_USRSHR_PATH) + 1; \
+		char *__tpath; \
+		__tpath = alloca(__len + 1); \
+		snprintf(__tpath, __len, \
+			OBEX_USRSHR_PATH, __uid); \
+			__tpath; \
+	})
+
 #endif /* BLUETOOTH_MAP_COMMON_H */
