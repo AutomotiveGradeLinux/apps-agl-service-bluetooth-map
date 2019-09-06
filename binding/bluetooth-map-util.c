@@ -167,7 +167,7 @@ json_object *simple_gvariant_to_json(GVariant *var, json_object *parent,
 		break;
 	case G_VARIANT_CLASS_INT64:
 		i64 = g_variant_get_int64(var);
-		if (i64 >= -(1L << 31) && i64 < (1L << 31))
+		if (i64 >= -(1LL << 31) && i64 < (1LL << 31))
 			obj = json_object_new_int((int)i64);
 		else
 			obj = json_object_new_int64(i64);
@@ -288,7 +288,7 @@ json_object *simple_gvariant_to_json(GVariant *var, json_object *parent,
 		g_variant_iter_init(&iter, var);
 		nitems = g_variant_iter_n_children(&iter);
 		if (nitems != 1) {
-			AFB_WARNING("Can't handle variants with more than one children (%lu)", nitems);
+			AFB_WARNING("Can't handle variants with more than one children (%zu)", nitems);
 			break;
 		}
 

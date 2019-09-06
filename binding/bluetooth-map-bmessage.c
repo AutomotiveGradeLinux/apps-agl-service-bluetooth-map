@@ -203,7 +203,7 @@ json_object *bmessage_parse(const gchar *bmessage)
 	if (!bmessage || !strlen(bmessage))
 		return NULL;
 
-	AFB_INFO("Parsing incoming bMessage of length %lu", strlen(bmessage));
+	AFB_INFO("Parsing incoming bMessage of length %zu", strlen(bmessage));
 
 	msg = g_strsplit(bmessage, "\n", -1);
 	sanitize_msg(msg);
@@ -290,7 +290,7 @@ GString *bmessage_encoder(afb_req_t request)
 	body_append(body, "BEGIN:BBODY");
 	body_append(body, "CHARSET:UTF-8");
 
-	tmp = g_strdup_printf("LENGTH:%lu",
+	tmp = g_strdup_printf("LENGTH:%zu",
 		strlen(BEGINMSG) + msg->len + strlen(ENDMSG));
 
 	body_append(body, tmp);
