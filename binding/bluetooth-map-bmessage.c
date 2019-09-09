@@ -203,7 +203,7 @@ json_object *bmessage_parse(const gchar *bmessage)
 	if (!bmessage || !strlen(bmessage))
 		return NULL;
 
-	AFB_INFO("Parsing incoming bMessage of length %zu", strlen(bmessage));
+	AFB_DEBUG("Parsing incoming bMessage of length %zu", strlen(bmessage));
 
 	msg = g_strsplit(bmessage, "\n", -1);
 	sanitize_msg(msg);
