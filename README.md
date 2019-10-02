@@ -5,11 +5,6 @@
 Bluetooth MAP (Message Access Profile) service uses the respective profile support from BlueZ
 to enable message notifications from SMS/email/etc.
 
-### Important Notes
-
-Message composition and message access  isn't available on iOS devices due to respective security
-polices, and in turn isn't supported in Apple's implementation of the (MAP) Message Access Profile.
-
 ## Verbs
 
 | Name              | Description                              | JSON Response                             |
