@@ -654,7 +654,17 @@ static void bluez_map_signal_callback(
 				if (!map_notification_check(var))
 					return;
 
+				/* Some messaging applications send out
+				 * notifications on startup, even if already
+				 * sent
+				 */
+				if (g_hash_table_contains(ns->already_notified, path))
+					return;
+
 				map_request_message(ns, path);
+
+				g_hash_table_insert(ns->already_notified, g_strdup(path), NULL);
+
 				continue;
 			}
 
@@ -790,6 +800,7 @@ static struct map_state *map_init(GMainLoop *loop)
 	}
 
 	ns->xfer_queue = g_hash_table_new(g_str_hash, g_str_equal);
+	ns->already_notified = g_hash_table_new(g_str_hash, g_str_equal);
 	ns->message_sub = g_dbus_connection_signal_subscribe(
 			ns->conn,
 			BLUEZ_OBEX_SERVICE,

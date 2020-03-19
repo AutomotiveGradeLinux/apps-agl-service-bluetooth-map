@@ -55,6 +55,9 @@ struct map_state {
 
 	/* xfer queue table */
 	GHashTable *xfer_queue;
+
+	/* message notify blacklist */
+	GHashTable *already_notified;
 };
 
 enum xfer_types {
