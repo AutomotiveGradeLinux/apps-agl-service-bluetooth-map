@@ -20,3 +20,9 @@
 _AFT.testVerbStatusSuccess('testcomposeSuccess','bluetooth-map','compose', {recipient="+639203600900", message="AGL bluetooth-map message sent successfully"})
 _AFT.testVerbStatusSuccess('testsubscribeSuccess','bluetooth-map','subscribe', {value="notification"})
 _AFT.testVerbStatusSuccess('testunsubscribeSuccess','bluetooth-map','unsubscribe', {value="notification"})
+
+_AFT.testVerbStatusSuccess('testListMsgSuccess','bluetooth-map','list_messages', {folder="INBOX"})
+
+-- "message" verb test depends on the "list_messages" verb result, it need to add context later
+_AFT.testVerbStatusSkipped('testMsgSuccess','bluetooth-map','message', {handle="message288230376151711769"})
+
