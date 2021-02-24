@@ -197,7 +197,7 @@ static void sanitize_msg(gchar **msg)
 json_object *bmessage_parse(const gchar *bmessage)
 {
 	gchar **msg;
-	json_object *jresp = json_object_new_object();
+	json_object *jresp;
 	gboolean ret;
 
 	if (!bmessage || !strlen(bmessage))
@@ -208,6 +208,7 @@ json_object *bmessage_parse(const gchar *bmessage)
 	msg = g_strsplit(bmessage, "\n", -1);
 	sanitize_msg(msg);
 
+	jresp = json_object_new_object();
 	ret = __bmessage_parse(msg, jresp);
 	if (!ret) {
 		json_object_put(jresp);

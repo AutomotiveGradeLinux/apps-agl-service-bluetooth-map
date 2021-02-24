@@ -236,7 +236,7 @@ static void map_subscribe_unsubscribe(afb_req_t request,
 		gboolean unsub)
 {
 	struct map_state *ns = map_get_userdata(request);
-	json_object *jresp = json_object_new_object();
+	json_object *jresp;
 	const char *value;
 	afb_event_t event;
 	int rc;
@@ -268,6 +268,7 @@ static void map_subscribe_unsubscribe(afb_req_t request,
 		return;
 	}
 
+	jresp = json_object_new_object();
 	afb_req_success_f(request, jresp, "Bluetooth MAP %s to event \"%s\"",
 			!unsub ? "subscribed" : "unsubscribed",
 			value);
